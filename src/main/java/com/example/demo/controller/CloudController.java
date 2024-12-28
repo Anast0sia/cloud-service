@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.logging.Logger;
 import java.util.*;
 
 @RestController
@@ -25,6 +26,7 @@ public class CloudController {
     private final AuthService authService;
     private final FileService fileService;
     private final FileRepository fileRepository;
+    private final Logger logger = Logger.getLogger(this.getClass().getName());
 
     @Autowired
     public CloudController(AuthService authService, FileService fileService, FileRepository fileRepository) {
@@ -45,7 +47,7 @@ public class CloudController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("message", "Unauthorized", "id", 401));
             }
-            fileService.addNewFile(filename, token, file);
+            fileService.addNewFile(filename, file, user);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -57,7 +59,7 @@ public class CloudController {
     public ResponseEntity<?> listFiles(@RequestHeader("auth-token") String token,
                                        @RequestParam(value = "limit", required = false) Integer limit) {
         token = extractToken(token);
-        System.out.println("Received auth-token: " + token);
+        logger.info("Received auth-token: " + token);
         User user = authService.authenticate(token);
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Unauthorized", "id", 401));
@@ -113,7 +115,7 @@ public class CloudController {
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "File not found"));
 
             Path filePath = Paths.get("file-storage", String.valueOf(user.getId()), filename);
-            System.out.println("File path: " + filePath.toAbsolutePath());
+            logger.info("File path: " + filePath.toAbsolutePath());
             if (!Files.exists(filePath)) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .body(Map.of("message", "File not found on disk", "id", 500));
@@ -164,14 +166,11 @@ public class CloudController {
         Path oldFilePath = Paths.get("file-storage", String.valueOf(user.getId()), filename);
         Path newFilePath = Paths.get("file-storage", String.valueOf(user.getId()), newName);
 
-        System.out.println("Old path: " + oldFilePath);
-        System.out.println("New path: " + newFilePath);
-
         boolean renamed = oldFilePath.toFile().renameTo(newFilePath.toFile());
         if (renamed) {
             fileInfo.setFilename(newName);
             fileRepository.save(fileInfo);
-            System.out.println("File renamed to: " + newName);
+            logger.info("File renamed to: " + newName);
             return ResponseEntity.ok().build();
         } else {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -193,7 +192,7 @@ public class CloudController {
         String login = credentials.get("login");
         String password = credentials.get("password");
         try {
-            System.out.println("Login: " + login + ", password: " + password);
+            logger.info("Login: " + login + ", password: " + password);
             String token = authService.login(login, password);
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_JSON)
@@ -209,7 +208,6 @@ public class CloudController {
                             "message", "Invalid login or password"
                     ));
         } catch (Exception e) {
-            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of(
@@ -223,6 +221,7 @@ public class CloudController {
     public ResponseEntity<?> logout(@RequestHeader("auth-token") String token) {
         token = extractToken(token);
         if (authService.logout(token) != null) {
+            logger.info("Logout successful");
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(

@@ -44,7 +44,6 @@ public class AuthService {
     public User authenticate(String token) {
         User user = activeTokens.get(token);
         if (user == null) {
-            System.out.println("Token is invalid or expired");
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
         }
         return user;

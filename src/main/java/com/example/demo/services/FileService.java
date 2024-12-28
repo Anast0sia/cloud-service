@@ -14,20 +14,19 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 @Service
 public class FileService {
     private final FileRepository fileRepository;
-    private final AuthService authService;
+    private final Logger logger = Logger.getLogger(this.getClass().getName());
 
-    public FileService(FileRepository fileRepository, AuthService authService) {
+    public FileService(FileRepository fileRepository) {
         this.fileRepository = fileRepository;
-        this.authService = authService;
     }
 
-    public void addNewFile(String filename, String token, MultipartFile file) {
+    public void addNewFile(String filename, MultipartFile file, User user) {
         try {
-            User user = authService.authenticate(token);
             if (user == null) {
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid token");
             }
@@ -45,18 +44,16 @@ public class FileService {
             Path filePath = userDirectory.resolve(filename);
             Files.write(filePath, file.getBytes());
             File fileEntity = new File();
-            System.out.println("Uploaded file size: " + file.getSize());
+            logger.info("Uploaded file size: " + file.getSize());
             fileEntity.setFilename(filename);
             fileEntity.setSize(file.getSize());
             fileEntity.setUser(user);
             fileRepository.save(fileEntity);
         } catch (IOException e) {
-            e.printStackTrace();
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error saving file to disk: " + e.getMessage());
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
-            e.printStackTrace();
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error: " + e.getMessage());
         }
     }

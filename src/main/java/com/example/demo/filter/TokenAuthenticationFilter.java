@@ -16,10 +16,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.logging.Logger;
 
 @Component
 public class TokenAuthenticationFilter extends OncePerRequestFilter {
     private final AuthService authService;
+    private final Logger logger = Logger.getLogger(this.getClass().getName());
 
     @Autowired
     public TokenAuthenticationFilter(AuthService authService) {
@@ -29,7 +31,7 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        System.out.println("Запрос на: " + request.getRequestURI());
+        logger.info("Запрос на: " + request.getRequestURI());
 
         if (request.getRequestURI().startsWith("/login") || request.getRequestURI().startsWith("/logout")) {
             filterChain.doFilter(request, response);
@@ -41,25 +43,25 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
             try {
                 User user = authService.authenticate(token);
                 if (user != null) {
-                    System.out.println("Token: " + token + ", user: " + user);
+                    logger.info("Token: " + token + ", user: " + user);
                     Authentication authentication = new UsernamePasswordAuthenticationToken(user, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    System.out.println("SecurityContext set for user: " + SecurityContextHolder.getContext().getAuthentication());
+                    logger.info("SecurityContext set for user: " + SecurityContextHolder.getContext().getAuthentication());
                 } else {
-                    System.out.println("User authentication failed.");
+                    logger.warning("User authentication failed.");
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.getWriter().write("{\"message\": \"Unauthorized\", \"id\": 401}");
                     return;
                 }
             } catch (Exception e) {
                 SecurityContextHolder.clearContext();
-                System.out.println("Authentication error: " + e.getMessage());
+                logger.severe("Authentication error: " + e.getMessage());
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.getWriter().write("{\"message\": \"Unauthorized\", \"id\": 401}");
                 return;
             }
         } else {
-            System.out.println("No token found.");
+            logger.severe("No token found.");
             response.setHeader("Set-Cookie", "JSESSIONID=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write("{\"message\": \"Unauthorized\", \"id\": 401}");

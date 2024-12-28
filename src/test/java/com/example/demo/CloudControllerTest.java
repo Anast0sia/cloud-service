@@ -69,7 +69,7 @@ class CloudControllerTest {
         User mockUser = new User();
         Mockito.when(authService.authenticate(token)).thenReturn(mockUser);
 
-        Mockito.doNothing().when(fileService).addNewFile(Mockito.eq(filename), Mockito.eq(token), Mockito.any(MultipartFile.class));
+        Mockito.doNothing().when(fileService).addNewFile(Mockito.eq(filename), Mockito.any(MultipartFile.class), Mockito.eq(mockUser));
 
         mockMvc.perform(multipart("/file")
                         .file(file)
@@ -77,6 +77,6 @@ class CloudControllerTest {
                         .header("auth-token", token))
                 .andExpect(status().isOk());
         Mockito.verify(fileService, Mockito.times(1))
-                .addNewFile(Mockito.eq(filename), Mockito.eq(token), Mockito.any(MultipartFile.class));
+                .addNewFile(Mockito.eq(filename),Mockito.any(MultipartFile.class), Mockito.eq(mockUser));
     }
 }
